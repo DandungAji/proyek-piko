@@ -1,0 +1,60 @@
+# Nama workflow
+name: Deploy Laravel to cPanel
+
+# Pemicu workflow: dijalankan setiap kali ada push ke branch 'main'
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Menggunakan environment Ubuntu terbaru
+
+    steps:
+      # Langkah 1: Mengambil kode dari repositori
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Langkah 2: Menyiapkan environment PHP
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2' # Sesuaikan dengan versi PHP di cPanel Anda
+          extensions: mbstring, exif, pcntl, bcmath, pdo_mysql # Ekstensi umum untuk Laravel
+          coverage: none
+
+      # Langkah 3: Install dependensi Composer
+      # --no-dev untuk tidak menginstall package development
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+      # Langkah 4: Menyiapkan Node.js untuk membangun aset frontend
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Sesuaikan dengan versi Node.js Anda
+
+      # Langkah 5: Install dependensi NPM
+      - name: Install NPM Dependencies
+        run: npm install
+
+      # Langkah 6: Build aset frontend (CSS & JS)
+      - name: Build Frontend Assets
+        run: npm run build
+
+      # Langkah 7: Mengirim file ke cPanel menggunakan FTP
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.SERVER_DIR }}
+          # Daftar file/folder yang tidak perlu di-upload
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .github/**
+            README.md
